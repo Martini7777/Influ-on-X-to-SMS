@@ -1,0 +1,58 @@
+import tweepy
+from twilio.rest import Client
+import os
+import time
+
+# Konfiguracja Twitter API
+TWITTER_API_KEY = os.environ.get('TWITTER_API_KEY')
+TWITTER_API_SECRET = os.environ.get('TWITTER_API_SECRET')
+TWITTER_ACCESS_TOKEN = os.environ.get('TWITTER_ACCESS_TOKEN')
+TWITTER_ACCESS_TOKEN_SECRET = os.environ.get('TWITTER_ACCESS_TOKEN_SECRET')
+
+# Konfiguracja Twilio
+TWILIO_ACCOUNT_SID = os.environ.get('TWILIO_ACCOUNT_SID')
+TWILIO_AUTH_TOKEN = os.environ.get('TWILIO_AUTH_TOKEN')
+TWILIO_NUMBER = os.environ.get('TWILIO_NUMBER')
+YOUR_NUMBER = os.environ.get('YOUR_NUMBER')
+
+# Inicjalizacja klienta Twitter
+auth = tweepy.OAuthHandler(TWITTER_API_KEY, TWITTER_API_SECRET)
+auth.set_access_token(TWITTER_ACCESS_TOKEN, TWITTER_ACCESS_TOKEN_SECRET)
+api = tweepy.API(auth)
+
+# Inicjalizacja klienta Twilio
+twilio_client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
+
+# Lista użytkowników do śledzenia (ich ID lub nazwę użytkownika)
+users_to_track = ['elonmusk', 'katyperry']  # Użyj prawdziwych ID lub nazw użytkowników
+
+# Zbiór ostatnio widzianych tweetów
+last_seen_tweets = set()
+
+def send_sms(message):
+    message = twilio_client.messages.create(
+        body=message,
+        from_=TWILIO_NUMBER,
+        to=YOUR_NUMBER
+    )
+    print(f"Sent SMS: {message.sid}")
+
+def check_tweets():
+    global last_seen_tweets
+    for user in users_to_track:
+        try:
+            tweets = api.user_timeline(screen_name=user, count=1, tweet_mode="extended")
+            if tweets:
+                latest_tweet = tweets[0]
+                tweet_id = latest_tweet.id_str
+                if tweet_id not in last_seen_tweets:
+                    last_seen_tweets.add(tweet_id)
+                    tweet_text = latest_tweet.full_text
+                    send_sms(f"New tweet from {user}: {tweet_text}")
+        except tweepy.TweepError as e:
+            print(f"Error while checking tweets: {e}")
+
+if __name__ == "__main__":
+    while True:
+        check_tweets()
+        time.sleep(60)  # Sprawdzaj co minutę
